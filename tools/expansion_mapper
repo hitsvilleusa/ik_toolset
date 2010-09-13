@@ -1,0 +1,73 @@
+#!/usr/bin/env ruby
+
+# For every graph provided, a list of the other graphs that are direct 
+# expansions of that graph will be determined.  The term 'direct' in this 
+# case means that there is no other graph that could be an 'intermediate' 
+# between these expansions.  The results will be in the form:
+#
+# 1: 2, 4
+# 2: 3
+# 3: 5
+# 4: 6
+# 5: 
+# 6:
+#
+# In this example, 2 and 4 are direct expansions but the full set of 
+# expansions from 1 are 2, 3, 4, 5, 6 since 3 is an expansion of 2,
+# 5 is an expansion of 3, and 6 is an expansion of 4.  This form is more
+# succinct than the complete list of all expansions for each graph, but
+# conveys the same information.
+#
+# This algorithm is optimized by taking advantage of the transitive nature
+# of expansions which means that if A is an expansion of B and B is an 
+# expansion of C, then we know that A is an expansion of C.
+#
+# Sending a USR1 signal will print the current progress to stderr.
+ENV['PATH'] += ":#{File.join(File.dirname(__FILE__), '..', 'nauty')}"
+$LOAD_PATH.unshift(File.join(File.dirname(__FILE__), '..', 'ruby', 'lib'))
+
+require 'standard_options_parser'
+
+Signal.trap("USR1") { print_expansions($stderr) }
+
+@graphs     = []
+@expansions = {}
+
+while graph = @graph_parser.next
+  @graphs            << graph
+  @expansions[graph] =  []
+end
+
+# Will only print the direct expansions
+def print_expansions(output_stream)
+  @graphs.each do |minor|
+    expansions = @expansions[minor].collect{|e| e.name}.sort.join(', ')
+    output_stream.puts "#{minor.name}: #{expansions}"
+  end
+end
+
+# All of the expansions for a given graph, direct (no intermediate jumps) and
+# indirect (intermediate jump through another graph)
+def expansions(minor_graph)
+  direct   = @expansions[minor_graph]
+  indirect = direct.collect{|exp| expansions(exp)}.flatten
+  all      = (direct + indirect).uniq
+  
+  all.sort_by{|graph| graph.name.to_i}
+end
+
+min_size   = @graphs.collect{|graph| graph.size}.min
+max_size   = @graphs.collect{|graph| graph.size}.max
+difference = max_size - min_size 
+
+(0..difference).each do |size_diff|
+  @graphs.each do |source|
+    @graphs.select{|g| (source.size + size_diff) == g.size}.each do |test|
+      unless expansions(source).include?(test)
+        @expansions[source] << test if source.minor_of?(test, false)
+      end
+    end
+  end
+end
+
+print_expansions(@out)

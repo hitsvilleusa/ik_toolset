@@ -1,0 +1,99 @@
+#!/usr/bin/env ruby
+
+# This will download the nauty source code, compile it, and extract
+# the necessary binaries.  It will also create a the necessary directories as
+# well as generate all of the connected graphs up to 9 vertices, placing
+# them in the graphs directory.  Finally, some documentation will be generated
+# for the docs directory.
+$LOAD_PATH.unshift(File.join(File.dirname(__FILE__), '..', 'ruby', 'lib'))
+
+require 'fileutils'
+require 'ik_classification'
+
+NAUTY_URL     = "http://cs.anu.edu.au/~bdm/nauty/nauty24b7.tar.gz"
+NAUTY_BIN_DIR = File.join(File.dirname(__FILE__), '..', 'nauty')
+DOCS_DIR      = File.join(File.dirname(__FILE__), '..', 'docs')
+GRAPHS_DIR    = File.join(File.dirname(__FILE__), '..', 'graphs')
+RESULTS_DIR   = File.join(File.dirname(__FILE__), '..', 'results')
+JAVA_DIR      = File.join(File.dirname(__FILE__), '..', 'java')
+RUBY_DIR      = File.join(File.dirname(__FILE__), '..', 'ruby')
+
+def initialize_directories
+  [NAUTY_BIN_DIR, DOCS_DIR, GRAPHS_DIR, RESULTS_DIR].each do |dir|
+    unless File.exists?(dir)
+      puts "\nCreating #{dir} directory..."
+      Dir.mkdir(dir)
+    end
+  end
+end
+
+def install_nauty
+  unless File.exists?('nauty24b7.tar.gz')
+    puts "\nDownloading nauty from #{NAUTY_URL}...\n"
+    `curl #{NAUTY_URL} > nauty24b7.tar.gz`
+  end
+  
+  puts "\nExpanding nauty...\n"
+  puts `tar -xzf nauty24b7.tar.gz`
+  puts "\nRunning configure...\n"
+  puts `cd nauty24b7 && ./configure`
+  puts "\nRunning make...\n"
+  puts `cd nauty24b7 && make`
+  
+  puts "\nCopying nauty binaries to #{NAUTY_BIN_DIR} directory...\n"
+  ['geng', 'genbg', 'directg', 'multig', 'genrang', 'copyg', 'labelg',
+   'shortg', 'listg', 'showg', 'amtog', 'dretog', 'complg', 'catg',
+   'addedgeg', 'deledgeg', 'newedgeg', 'countg', 'pickg', 'biplabg',
+   'planarg'].each do |tool|
+    FileUtils.mv("nauty24b7/#{tool}", NAUTY_BIN_DIR)
+  end
+
+  puts "\nCopying manual to #{DOCS_DIR} directory...\n"
+  FileUtils.mv('nauty24b7/nug.pdf', DOCS_DIR)
+
+  puts "\nRemoving unused files...\n"
+  FileUtils.rm_rf('nauty24b7')
+  FileUtils.rm('nauty24b7.tar.gz')
+end
+
+def compile_java
+  puts "\nBuilding the Java tools...\n"
+  puts `ant -f #{JAVA_DIR}/build.xml`
+end
+
+def generate_graphs
+  generator = File.join(File.dirname(__FILE__), 'graph_generator')
+  
+  (1..9).each do |order|
+    filepath = File.join(GRAPHS_DIR, "connected_graphs_#{order}.txt")
+    puts "\nGenerating connected graphs of order #{order} at #{filepath}\n"
+    `#{generator} #{order} -o #{filepath}`
+  end  
+end
+
+def generate_docs
+  File.open(File.join(DOCS_DIR, 'classification_tests.txt'), 'w') do |file|
+    file.write("The following lists the classification tests that are run " +
+               "by the ik_classifier program, along with descriptions of "  +
+               "each.  The order listed is the order the tests are "        +
+               "executed from within the tool.\n\n")
+               
+    IKClassification::Classifier::CLASSIFICATIONS.each do |classification|
+      file.write("#{classification.name}\n")
+      file.write("  #{classification.description}\n\n")
+    end
+  end
+  
+  puts "\nGenerating rdocs for the Ruby source code...\n"
+  ruby_docs = File.join(DOCS_DIR, 'rdocs')
+  puts `rdoc #{File.join(RUBY_DIR, 'lib')} -aSN -f html -o #{ruby_docs}`
+  
+  puts "\nGenerating javadocs for Java source code...\n"
+  puts `ant -f #{File.join(JAVA_DIR, 'build.xml')} docs`
+end
+
+initialize_directories
+install_nauty
+compile_java
+generate_graphs
+generate_docs

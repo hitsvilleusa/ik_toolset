@@ -1,0 +1,50 @@
+#!/usr/bin/env ruby
+
+# Determines if the graphs provided are intrinsically knotted by running
+# the Java based tool.  The only allowed options are a required input file
+# (-f) and an optional output file (-o).  Example:
+#
+# tools/java_ik_classifier -f graphs/connected_graphs_4.txt -o output.txt
+# 
+# If specific graphs are desired or simply a list of edges, then first run 
+# the list through the 'graph_finder' tool in order to create a file for the 
+# desired graphs and then run them through this tool.  Example:
+#
+# tools/graph_finder -o test_graph.txt -e 0 1  0 2  0 3  1 2
+# tools/java_ik_classifier -f test_graph.txt
+#
+# or
+#
+# tools/graph_finder -f graphs/connected_graphs_9.txt -o test_graph.txt 20:30
+# tools/java_ik_classifier -f test_graph.txt
+#
+# This tool is merely a wrapper around the java tool at:
+# java/dist/lib/knotfinder.jar
+require 'optparse'
+
+OPTIONS = {}
+
+OptionParser.new do |opts|
+  opts.banner  = "Usage: #{$0} -f <graph_file> [-o outfile]\n"
+
+  opts.on("-f", "--infile  STRING", "The file with the graphs.") do |filepath|
+    OPTIONS[:infile] = filepath
+  end
+  
+  opts.on("-o", "--outfile STRING", "The output file path.") do |filepath|
+    OPTIONS[:outfile] = filepath
+  end
+end.parse!
+
+unless OPTIONS[:infile]
+  $stderr.puts "A graph source file (-f) is required."
+  exit 0
+end
+
+jar_file = File.join(File.dirname(__FILE__), 
+                     '..',
+                     'java',
+                     'dist', 
+                     'knotfinder.jar')
+                     
+puts `java -jar #{jar_file} #{OPTIONS[:infile]} #{OPTIONS[:outfile]}`

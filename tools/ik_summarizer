@@ -1,0 +1,166 @@
+#!/usr/bin/env ruby
+
+# Summarizes the results from a run of ik_classifier or java_ik_classifier.  
+# Gives basic timing analysis and test classification distributions.  Also 
+# gives a list of the indeterminate graphs if any were found.
+require 'optparse'
+require 'erb'
+require 'time'
+
+OPTIONS = {}
+
+OptionParser.new do |opts|
+  opts.banner  = "Usage: #{$0} -f <results file path> [options]"
+  opts.on("-f", "--infile  STRING", "The results file path.") do |filepath| 
+    OPTIONS[:infile] = filepath
+  end
+  
+  opts.on("-o", "--outfile STRING", "The output file path.") do |filepath|
+    OPTIONS[:outfile] = filepath
+  end
+end.parse!
+
+unless OPTIONS[:infile]
+  $stderr.puts "A results source file (-f) is required."
+  exit 0
+end
+
+begin
+  @out = OPTIONS[:outfile] ? File.new(OPTIONS[:outfile], 'w') : $stdout
+rescue => e
+  $stderr.puts e.message
+  exit 0
+end
+
+def format_elapsed_time(seconds)
+  miliseconds  = (seconds * 1000).round
+  days         = miliseconds / (1000 * 60 * 60 * 24)
+  miliseconds %= 1000 * 60 * 60 * 24
+  hours        = miliseconds / (1000 * 60 * 60)
+  miliseconds %= 1000 * 60 * 60
+  minutes      = miliseconds / (1000 * 60)
+  miliseconds %= (1000 * 60)
+  seconds      = miliseconds / 1000
+  miliseconds %= 1000
+  
+  output  = ''
+  output << "#{days}d"    unless days    == 0
+  output << "#{hours}h"   unless hours   == 0 && output == ''
+  output << "#{minutes}m" unless minutes == 0 && output == ''
+  output << "#{seconds}s" unless seconds == 0 && output == ''
+  output << "#{miliseconds}ms"
+  output
+end
+
+@results_file        = File.open(OPTIONS[:infile])
+
+@stats               = {}
+@stats[:graph_times] = []
+@stats[:graph_count] = 0
+@stats[:tests]       = {}
+@stats[:states]      = {'ik' => [], 'not_ik' => [], 'indeterminate' => []}
+@stats[:start_time]  = Time.parse(@results_file.readline)
+@stats[:command]     = @results_file.readline.strip
+
+# Read in the blank line
+@results_file.readline
+
+while (next_line = @results_file.readline.strip) != ''
+  parts = next_line.split(', ')
+  
+  @stats[:states][parts[1]] << parts[0]
+  
+  unless parts[1] == 'indeterminate'
+    @stats[:tests][parts[2]] ||= 0
+    @stats[:tests][parts[2]]  += 1
+  end
+  
+  @stats[:graph_times] << parts[3].to_f
+  @stats[:graph_count] += 1
+end
+
+@stats[:end_time] = Time.parse(@results_file.readline)
+
+@results_file.close
+
+@stats[:graph_times].sort!
+
+@stats[:elapsed_time]      = @stats[:end_time] - @stats[:start_time]
+@stats[:total_graph_time]  = @stats[:graph_times].inject{|sum, i| sum + i}
+@stats[:mean_graph_time]   = @stats[:total_graph_time] / @stats[:graph_count]
+@stats[:median_graph_time] = @stats[:graph_times][@stats[:graph_count]/2]
+@stats[:min_graph_time]    = @stats[:graph_times][0]
+@stats[:max_graph_time]    = @stats[:graph_times][-1]
+
+@out.puts ERB.new(DATA, nil, '%<>').result
+
+__END__
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+<%= size = @stats[:command].size
+    if size >= 78
+      @stats[:command]
+    elsif size >= 76
+      " #{@stats[:command]}"
+    else
+      leading  = (76 - size) / 2
+      trailing = leading
+      leading += 1 if size % 2 == 1
+      "#{'~' * leading} #{@stats[:command]} #{'~' * trailing}"
+    end
+ %>
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Classification Run At:       <%= @stats[:start_time]  %>
+Classification Completed At: <%= @stats[:end_time]    %>
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~ CLASSIFICATION SUMMARY ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Graphs Processed
+  Total: <%= @stats[:graph_count] %>
+  
+States
+  Not Intrinsically Knotted: <%= "%-7d (%1.2f%%)" % 
+    [@stats[:states]['not_ik'].size,
+     @stats[:states]['not_ik'].size * 100.0 / @stats[:graph_count]] %>
+  Intrinsically Knotted:     <%= "%-7d (%1.2f%%)" % 
+    [@stats[:states]['ik'].size,
+     @stats[:states]['ik'].size * 100.0 / @stats[:graph_count]] %>
+  Indeterminate:             <%= "%-7d (%1.2f%%)" % 
+    [@stats[:states]['indeterminate'].size,
+     @stats[:states]['indeterminate'].size * 100.0 / @stats[:graph_count]] %>
+
+Classification Tests
+<% @stats[:tests].each do |test, count| %>
+  <%= "%-35s %-7s (%1.2f%%)" % [test + ':', 
+                                count,
+                                count * 100.0 / @stats[:graph_count]] %>
+<% end %>
+  <%= "%-35s %-7s (%1.2f%%)" % 
+      ['Unclassified:', 
+       @stats[:states]['indeterminate'].size,
+       @stats[:states]['indeterminate'].size * 100.0 / @stats[:graph_count]]
+   %>
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~ TIMING SUMMARY ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Elapsed Time 
+  Total:   <%= format_elapsed_time(@stats[:elapsed_time])      %>
+
+Graph Classifying Time
+  Total:   <%= format_elapsed_time(@stats[:total_graph_time])  %>
+  Mean:    <%= format_elapsed_time(@stats[:mean_graph_time])   %>
+  Median:  <%= format_elapsed_time(@stats[:median_graph_time]) %>
+  Minimum: <%= format_elapsed_time(@stats[:min_graph_time])    %>
+  Maximum: <%= format_elapsed_time(@stats[:max_graph_time])    %>
+
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~ INDETERMINATE GRAPHS ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Graph Ids
+<% @stats[:states]['indeterminate'].each do |graph_id| %>
+  <%= graph_id %>
+<% end %>
+

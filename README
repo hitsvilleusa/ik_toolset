@@ -1,0 +1,69 @@
+The purpose of this project is to classify a graph with respect to the
+property of intrinsic knotting.  The following are required in order to 
+proceed:
+  - A C compiler is required to be in your environment PATH
+  - ruby and rdoc is required to be in your environment PATH
+  - java, javac and javadoc are required to be in your environment PATH
+  - ant build tool is required to be in your environment PATH
+  - an internet connection is required to download the nauty toolset
+  
+Once you have confirmed that you meet these minimum requirements, run the 
+'tools/installer' program to build the appropriate binaries, graphs
+and documentation.
+
+Upon successful completion of this, you are free to use the tools in the
+'tools' directory.  In order to classify a set of graphs using the Ruby
+implementation, issue the following command:
+
+tools/ik_classifier -f graphs/connected_graphs_7.txt
+
+Be sure to explore the options for some of the tools by issuing the 
+command option --help to the tool.  For example:
+
+tools/ik_classifier --help
+
+The following tools are included:
+
+expansion_mapper
+  Prints a list of all of the expansions of each of the graphs with respect 
+  to each other. Takes a list of graphs as an argument and looks at each graph
+  with respect to all of the other graphs. The tool determines which graphs in
+  the supplied list of graphs are minors and expansions of each other.
+  
+graph_complementor
+  Prints the complements to the specified graphs in a form that can be 
+  interpreted by many of the other tools. This tool can be used to pick out 
+  only certain graphs from a file of many graphs.
+  
+graph_finder
+  Prints the specified graphs in a form that can be interpreted by many of the
+  other tools. This tool can be used to pick out only certain graphs from a 
+  file of many graphs.
+  
+graph_generator
+  Generates listings of all of the connected graphs on the given number of 
+  vertices. The graph listings are in a form that can be interpreted by many 
+  of the other tools.
+  
+ik_classifier
+  Classifies the supplied graphs with respect to the property of intrinsic 
+  knotting using the Ruby implementation. The results of the classification
+  efforts will be printed to standard output or the supplied output file.
+  
+ik_summarizer
+  Summarizes the results from a run of ik_classifier or java_ik_classifier. 
+  The summary will include classification results, as well as timing results 
+  in a succinct presentation.
+  
+installer
+  Installs the necessary binaries and creates the needed files and directories
+  in order for the tools to work. This must be run before using any of the 
+  other tools.
+  
+java_ik_classifier
+  Uses the Java code to classify the supplied graphs with respect to the 
+  property of intrinsic knotting.  This is the only tool that references the 
+  Java code.  (If the more robust options of ik_classifier are desired which 
+  allow the edges to be specified or specific graphs, then first run those 
+  options through graph_finder and write the results to a file.  Feed that 
+  file into the java_ik_classifier with the -f option.)

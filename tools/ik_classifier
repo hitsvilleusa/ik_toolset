@@ -1,0 +1,48 @@
+#!/usr/bin/env ruby
+
+# Determine if the graphs provided are intrinsically knotted.  If they
+# cannot be determined 'indeterminate' will be the result.
+# If the results are to be processed, it is valuable to output to a file
+# with the -o option because there is some information printed to stderr
+# that does not belong on the file.
+#
+# If a kill signal is sent to the process while running, the current
+# graph will be completed before killing the entire process.
+#
+# The output of this process can be interpreted by ik_summarizer
+ENV['PATH'] += ":#{File.join(File.dirname(__FILE__), '..', 'nauty')}"
+$LOAD_PATH.unshift(File.join(File.dirname(__FILE__), '..', 'ruby', 'lib'))
+
+require 'standard_options_parser'
+require 'time'
+require 'ik_classification'
+
+@stop_processing = false
+
+Signal.trap("SIGINT")  { @stop_processing = true }
+Signal.trap("SIGQUIT") { @stop_processing = true }
+Signal.trap("SIGTERM") { @stop_processing = true }
+
+@graph_count = 0
+@start_time  = Time.now
+
+@out.puts @start_time.xmlschema(3)
+@out.puts COMMAND_ISSUED
+@out.puts
+
+while !@stop_processing && graph = @graph_parser.next
+  ik, classification, time = IKClassification::Classifier.classify(graph)
+  @out.puts "%s, %s, %s, %f" % [graph.name, 
+                                ik, 
+                                classification && classification.name, 
+                                time]
+  @graph_count += 1  
+end  
+
+@end_time = Time.now
+
+@out.puts
+@out.puts @end_time.xmlschema(3)
+
+$stderr.puts "Processed #{@graph_count} graphs in "      +
+             "#{(@end_time - @start_time) / 60.0} mins."

@@ -1,0 +1,10 @@
+#!/usr/bin/env ruby
+
+# Print every graph provided in a parsable form for the tools.
+$LOAD_PATH.unshift(File.join(File.dirname(__FILE__), '..', 'ruby', 'lib'))
+
+require 'standard_options_parser'
+
+while graph = @graph_parser.next
+  @out.puts "\n#{graph}"
+end

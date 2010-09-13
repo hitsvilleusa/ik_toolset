@@ -1,0 +1,48 @@
+<project name="KnotFinder" default="build" basedir=".">
+  <description>Build file for KnotFinder</description>
+  
+  <!-- set global properties for this build -->
+  <property name="src"   location="src"/>
+  <property name="build" location="build"/>
+  <property name="dist"  location="dist"/>
+  <property name="docs"  location="../docs/javadocs"/>
+
+  <target name="init">
+    <!-- Create the time stamp -->
+    <tstamp/>
+  </target>
+
+  <target name        = "build" 
+          depends     = "init" 
+          description = "compile the source and generate the distribution">
+    <!-- Compile the java code -->
+    <mkdir dir     = "${build}"/>
+    <javac srcdir  = "${src}" 
+           destdir = "${build}"/>           
+    
+    <!-- Build the distribution jar -->
+    <mkdir dir     = "${dist}"/>
+    <jar   jarfile = "${dist}/knotfinder-${DSTAMP}.jar" 
+          basedir = "${build}">
+     <manifest>
+       <attribute name = "Built-By"   value = "${user.name}"/>
+       <attribute name = "Main-Class" value = "ik.KnotFinder"  />
+     </manifest>
+    </jar>
+    <delete file   = "${dist}/knotfinder.jar"/>
+    <copy   file   = "${dist}/knotfinder-${DSTAMP}.jar"
+            tofile = "${dist}/knotfinder.jar"/>
+    
+    <!-- Remove the compiled java class files -->
+    <delete dir = "${build}"/>
+  </target>
+  
+  <target name        = "docs"
+          description = "build the javadocs">
+    <javadoc destdir = "${docs}">
+      <fileset dir = "${src}/ik">
+        <include name = "*"/>
+      </fileset>
+    </javadoc>
+  </target>
+</project>
