@@ -67,3 +67,9 @@ java_ik_classifier
   allow the edges to be specified or specific graphs, then first run those 
   options through graph_finder and write the results to a file.  Feed that 
   file into the java_ik_classifier with the -f option.)
+
+
+
+These tools were created for my Masters thesis which can be found here:
+Thesis: http://www.scribd.com/doc/37376317
+Presentation: http://www.scribd.com/doc/37376655
